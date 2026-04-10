@@ -127,7 +127,7 @@ The agent card is fetched lazily on the first `invoke()` or `stream()` call.
 
 ### Authenticated endpoints
 
-When the remote agent's card endpoint or message endpoint requires authentication (SigV4, OAuth, bearer tokens), pass a `ClientConfig` with a pre-configured `httpx_client`:
+When the remote agent requires authentication, pass a `ClientConfig` with a pre-configured `httpx_client`. The same client is used for both card discovery and message sending.
 
 <Tabs>
 <Tab label="Python">
@@ -137,32 +137,24 @@ import httpx
 from a2a.client import ClientConfig
 from strands.agent.a2a_agent import A2AAgent
 
-# Configure an httpx client with bearer token authentication
+# Bearer token, SigV4, OAuth — configure httpx as needed
 auth_client = httpx.AsyncClient(
     headers={"Authorization": "Bearer <your-token>"},
     timeout=300,
 )
 
-# Pass it through client_config — used for both card discovery and message sending
 a2a_agent = A2AAgent(
     endpoint="https://my-protected-agent.example.com",
     client_config=ClientConfig(httpx_client=auth_client),
 )
 
 result = a2a_agent("Hello, authenticated agent")
-print(result.message)
 ```
 
-For AWS SigV4 authentication, use a library like [`aws-sigv4-httpx`](https://pypi.org/project/aws-sigv4-httpx/) or configure `httpx.Auth`:
+For AWS SigV4, use a custom `httpx.Auth` subclass or a library like [`aws-sigv4-httpx`](https://pypi.org/project/aws-sigv4-httpx/):
 
 ```python
-import httpx
-from a2a.client import ClientConfig
-from strands.agent.a2a_agent import A2AAgent
-
-# Example: custom httpx.Auth subclass for SigV4
 auth_client = httpx.AsyncClient(auth=my_sigv4_auth, timeout=300)
-
 a2a_agent = A2AAgent(
     endpoint="https://my-aws-agent.example.com",
     client_config=ClientConfig(httpx_client=auth_client),
@@ -177,25 +169,8 @@ a2a_agent = A2AAgent(
 </Tab>
 </Tabs>
 
-:::warning[Timeout responsibility]
-When you provide your own `httpx_client` through `client_config`, you are responsible for configuring its timeout. The `A2AAgent.timeout` parameter only applies to internally-created HTTP clients.
-:::
-
-:::note[Migrating from `a2a_client_factory`]
-The `a2a_client_factory` parameter is deprecated. Replace it with `client_config`:
-
-```python
-# Before (deprecated)
-from a2a.client import ClientConfig, ClientFactory
-factory = ClientFactory(ClientConfig(httpx_client=auth_client))
-agent = A2AAgent(endpoint=url, a2a_client_factory=factory)
-
-# After (recommended)
-from a2a.client import ClientConfig
-agent = A2AAgent(endpoint=url, client_config=ClientConfig(httpx_client=auth_client))
-```
-
-You cannot provide both parameters — doing so raises a `ValueError`.
+:::note
+When you provide your own `httpx_client`, you are responsible for its timeout configuration. The `a2a_client_factory` parameter is deprecated — use `client_config` instead. You cannot provide both.
 :::
 
 ### Asynchronous Invocation
